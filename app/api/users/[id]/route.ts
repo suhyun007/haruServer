@@ -1,20 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: params.id },
-    })
+    const { data: user, error } = await supabase
+      .from('haru_users')
+      .select(`
+        *,
+        dietMethod:haru_diet_methods(*)
+      `)
+      .eq('id', params.id)
+      .single()
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+      throw error
     }
 
-    return NextResponse.json(user)
+    // Convert snake_case to camelCase
+    const formattedUser = {
+      id: user.id,
+      nickname: user.nickname,
+      age: user.age,
+      gender: user.gender,
+      height: user.height,
+      heightUnit: user.height_unit,
+      currentWeight: user.current_weight,
+      currentWeightUnit: user.current_weight_unit,
+      targetWeight: user.target_weight,
+      targetWeightUnit: user.target_weight_unit,
+      dailyCalorieGoal: user.daily_calorie_goal,
+      dietStartDate: user.diet_start_date,
+      dietMethod: user.dietMethod,
+    }
+
+    return NextResponse.json(formattedUser)
   } catch (error) {
     console.error('Error fetching user:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -27,22 +52,65 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
-    const { name, targetWeight, currentWeight, dailyCalorieGoal } = body
+    const { 
+      nickname, 
+      age, 
+      gender, 
+      height, 
+      heightUnit, 
+      currentWeight, 
+      currentWeightUnit, 
+      targetWeight, 
+      targetWeightUnit, 
+      dietMethodId, 
+      dailyCalorieGoal 
+    } = body
 
-    const user = await prisma.user.update({
-      where: { id: params.id },
-      data: {
-        name,
-        targetWeight: parseFloat(targetWeight),
-        currentWeight: parseFloat(currentWeight),
-        dailyCalorieGoal: parseInt(dailyCalorieGoal),
-      },
-    })
+    const updateData: any = {}
+    if (nickname !== undefined) updateData.nickname = nickname
+    if (age !== undefined) updateData.age = parseInt(age)
+    if (gender !== undefined) updateData.gender = gender
+    if (height !== undefined) updateData.height = parseFloat(height)
+    if (heightUnit !== undefined) updateData.height_unit = heightUnit
+    if (currentWeight !== undefined) updateData.current_weight = parseFloat(currentWeight)
+    if (currentWeightUnit !== undefined) updateData.current_weight_unit = currentWeightUnit
+    if (targetWeight !== undefined) updateData.target_weight = parseFloat(targetWeight)
+    if (targetWeightUnit !== undefined) updateData.target_weight_unit = targetWeightUnit
+    if (dietMethodId !== undefined) updateData.diet_method_id = dietMethodId
+    if (dailyCalorieGoal !== undefined) updateData.daily_calorie_goal = parseInt(dailyCalorieGoal)
 
-    return NextResponse.json(user)
+    const { data: user, error } = await supabase
+      .from('haru_users')
+      .update(updateData)
+      .eq('id', params.id)
+      .select(`
+        *,
+        dietMethod:haru_diet_methods(*)
+      `)
+      .single()
+
+    if (error) throw error
+
+    // Convert snake_case to camelCase
+    const formattedUser = {
+      id: user.id,
+      nickname: user.nickname,
+      age: user.age,
+      gender: user.gender,
+      height: user.height,
+      heightUnit: user.height_unit,
+      currentWeight: user.current_weight,
+      currentWeightUnit: user.current_weight_unit,
+      targetWeight: user.target_weight,
+      targetWeightUnit: user.target_weight_unit,
+      dailyCalorieGoal: user.daily_calorie_goal,
+      dietStartDate: user.diet_start_date,
+      dietMethod: user.dietMethod,
+    }
+
+    return NextResponse.json(formattedUser)
   } catch (error) {
     console.error('Error updating user:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

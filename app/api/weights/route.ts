@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,10 +10,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
-    const weights = await prisma.weight.findMany({
-      where: { userId },
-      orderBy: { date: 'asc' },
-    })
+    const { data: weights, error } = await supabase
+      .from('haru_weight_records')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: true })
+
+    if (error) throw error
 
     return NextResponse.json(weights)
   } catch (error) {
@@ -25,21 +28,32 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userId, weight, date } = body
+    const { userId, weight, weightUnit, date, memo } = body
 
-    const weightRecord = await prisma.weight.create({
-      data: {
-        userId,
+    const { data: weightRecord, error: weightError } = await supabase
+      .from('haru_weight_records')
+      .insert({
+        user_id: userId,
         weight: parseFloat(weight),
-        date: new Date(date),
-      },
-    })
+        weight_unit: weightUnit,
+        date: new Date(date).toISOString(),
+        memo,
+      })
+      .select()
+      .single()
+
+    if (weightError) throw weightError
 
     // Update user's current weight
-    await prisma.user.update({
-      where: { id: userId },
-      data: { currentWeight: parseFloat(weight) },
-    })
+    const { error: userError } = await supabase
+      .from('haru_users')
+      .update({ 
+        current_weight: parseFloat(weight),
+        current_weight_unit: weightUnit
+      })
+      .eq('id', userId)
+
+    if (userError) throw userError
 
     return NextResponse.json(weightRecord, { status: 201 })
   } catch (error) {
@@ -47,4 +61,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

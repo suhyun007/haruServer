@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    await prisma.meal.delete({
-      where: { id: params.id },
-    })
+    const { error } = await supabase
+      .from('meal_records')
+      .delete()
+      .eq('id', params.id)
+
+    if (error) throw error
 
     return NextResponse.json({ message: 'Meal deleted successfully' })
   } catch (error) {
@@ -16,4 +19,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

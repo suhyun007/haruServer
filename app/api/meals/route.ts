@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +11,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
-    const where: any = { userId }
+    let query = supabase
+      .from('meal_records')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
 
     if (date) {
       const startDate = new Date(date)
@@ -19,16 +23,14 @@ export async function GET(request: NextRequest) {
       const endDate = new Date(date)
       endDate.setHours(23, 59, 59, 999)
 
-      where.date = {
-        gte: startDate,
-        lte: endDate,
-      }
+      query = query
+        .gte('date', startDate.toISOString())
+        .lte('date', endDate.toISOString())
     }
 
-    const meals = await prisma.meal.findMany({
-      where,
-      orderBy: { date: 'desc' },
-    })
+    const { data: meals, error } = await query
+
+    if (error) throw error
 
     return NextResponse.json(meals)
   } catch (error) {
@@ -42,15 +44,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { userId, mealType, foodName, calories, date } = body
 
-    const meal = await prisma.meal.create({
-      data: {
-        userId,
-        mealType,
-        foodName,
+    const { data: meal, error } = await supabase
+      .from('meal_records')
+      .insert({
+        user_id: userId,
+        meal_type: mealType,
+        food_name: foodName,
         calories: parseInt(calories),
-        date: new Date(date),
-      },
-    })
+        date: new Date(date).toISOString(),
+      })
+      .select()
+      .single()
+
+    if (error) throw error
 
     return NextResponse.json(meal, { status: 201 })
   } catch (error) {
@@ -58,4 +64,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
