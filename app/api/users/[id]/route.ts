@@ -114,3 +114,33 @@ export async function PUT(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // 먼저 관련된 체중 기록 삭제
+    const { error: weightError } = await supabase
+      .from('haru_weight_records')
+      .delete()
+      .eq('user_id', params.id)
+
+    if (weightError) {
+      console.error('Error deleting weight records:', weightError)
+    }
+
+    // 사용자 삭제
+    const { error } = await supabase
+      .from('haru_users')
+      .delete()
+      .eq('id', params.id)
+
+    if (error) throw error
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
