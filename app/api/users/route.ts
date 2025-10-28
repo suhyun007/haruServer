@@ -51,7 +51,13 @@ export async function POST(request: NextRequest) {
       targetWeightUnit, 
       dietMethodId, 
       dietStartDate, 
-      dailyCalorieGoal 
+      dailyCalorieGoal,
+      deviceId,
+      // 소셜 로그인 관련 필드
+      email,
+      deviceType,
+      socialId,
+      loginProvider
     } = body
 
     const { data: user, error } = await supabase
@@ -69,6 +75,13 @@ export async function POST(request: NextRequest) {
         diet_method_id: dietMethodId,
         diet_start_date: dietStartDate,
         daily_calorie_goal: parseInt(dailyCalorieGoal),
+        device_id: deviceId,
+        last_login_at: new Date().toISOString(),
+        // 소셜 로그인 관련 필드
+        email: email || null,
+        device_type: deviceType || null,
+        social_id: socialId || null,
+        login_provider: loginProvider || null,
       })
       .select(`
         *,
@@ -97,6 +110,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(formattedUser, { status: 201 })
   } catch (error) {
     console.error('Error creating user:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }

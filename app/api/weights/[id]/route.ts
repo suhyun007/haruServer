@@ -13,7 +13,7 @@ export async function PUT(
       .from('haru_weight_records')
       .update({
         weight: parseFloat(weight),
-        date: new Date(date).toISOString(),
+        date: date, // 날짜를 그대로 사용 (이미 YYYY-MM-DD 형식)
         memo: memo,
       })
       .eq('id', params.id)

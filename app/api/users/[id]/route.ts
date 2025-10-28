@@ -36,6 +36,7 @@ export async function GET(
       targetWeightUnit: user.target_weight_unit,
       dailyCalorieGoal: user.daily_calorie_goal,
       dietStartDate: user.diet_start_date,
+      profileImageUrl: user.profile_image_url,
       dietMethod: user.dietMethod,
     }
 
@@ -63,7 +64,9 @@ export async function PUT(
       targetWeight, 
       targetWeightUnit, 
       dietMethodId, 
-      dailyCalorieGoal 
+      dailyCalorieGoal,
+      dietStartDate,
+      deviceId 
     } = body
 
     const updateData: any = {}
@@ -78,6 +81,11 @@ export async function PUT(
     if (targetWeightUnit !== undefined) updateData.target_weight_unit = targetWeightUnit
     if (dietMethodId !== undefined) updateData.diet_method_id = dietMethodId
     if (dailyCalorieGoal !== undefined) updateData.daily_calorie_goal = parseInt(dailyCalorieGoal)
+    if (dietStartDate !== undefined) updateData.diet_start_date = dietStartDate
+    if (deviceId !== undefined) updateData.device_id = deviceId
+    
+    // 항상 last_login_at 업데이트
+    updateData.last_login_at = new Date().toISOString()
 
     const { data: user, error } = await supabase
       .from('haru_users')
@@ -105,6 +113,7 @@ export async function PUT(
       targetWeightUnit: user.target_weight_unit,
       dailyCalorieGoal: user.daily_calorie_goal,
       dietStartDate: user.diet_start_date,
+      profileImageUrl: user.profile_image_url,
       dietMethod: user.dietMethod,
     }
 
