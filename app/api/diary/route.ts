@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json(data || []);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching diary:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating diary:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -102,7 +102,7 @@ export async function PUT(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating diary:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -131,7 +131,7 @@ export async function DELETE(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting diary:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
