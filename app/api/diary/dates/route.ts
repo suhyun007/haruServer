@@ -22,7 +22,8 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     // 중복 제거하여 유니크한 날짜 리스트 반환
-    const uniqueDates = [...new Set(data?.map(item => item.date) || [])];
+    const dates = data?.map(item => item.date) || [];
+    const uniqueDates = Array.from(new Set(dates));
 
     return NextResponse.json(uniqueDates);
   } catch (error: any) {
