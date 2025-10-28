@@ -7,6 +7,8 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const date = searchParams.get('date');
 
+    console.log('🔍 다이어리 조회 요청:', { userId, date });
+
     if (!userId) {
       return NextResponse.json(
         { error: 'userId is required' },
@@ -27,6 +29,8 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) throw error;
+
+    console.log('✅ 다이어리 조회 결과:', { count: data?.length || 0, data });
 
     return NextResponse.json(data || []);
   } catch (error: any) {
