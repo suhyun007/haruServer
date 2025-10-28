@@ -82,12 +82,12 @@ function startNotificationScheduler() {
     console.log('⏰ 현재 시간:', currentTime);
     
     // 모든 스케줄 확인
-    for (const [userId, schedule] of notificationSchedules.entries()) {
+    notificationSchedules.forEach((schedule, userId) => {
       if (schedule.isActive && schedule.time === currentTime) {
         console.log('🔔 알림 전송:', { userId, time: schedule.time });
         sendNotificationToUser(userId, schedule.type);
       }
-    }
+    });
   }, 60000); // 1분마다 체크
 }
 
