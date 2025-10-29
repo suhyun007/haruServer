@@ -53,6 +53,9 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
+    console.log('PUT /api/users - 요청 데이터:', body)
+    console.log('PUT /api/users - 사용자 ID:', params.id)
+    
     const { 
       nickname, 
       age, 
@@ -66,7 +69,9 @@ export async function PUT(
       dietMethodId, 
       dailyCalorieGoal,
       dietStartDate,
-      deviceId 
+      deviceId,
+      notification_enabled,
+      notification_time
     } = body
 
     const updateData: any = {}
@@ -83,10 +88,18 @@ export async function PUT(
     if (dailyCalorieGoal !== undefined) updateData.daily_calorie_goal = parseInt(dailyCalorieGoal)
     if (dietStartDate !== undefined) updateData.diet_start_date = dietStartDate
     if (deviceId !== undefined) updateData.device_id = deviceId
+    if (notification_enabled !== undefined) updateData.notification_enabled = notification_enabled
+    if (notification_time !== undefined) updateData.notification_time = notification_time
+    
+    console.log('PUT /api/users - 업데이트할 데이터:', updateData)
     
     // 항상 last_login_at 업데이트
     updateData.last_login_at = new Date().toISOString()
 
+    console.log('PUT /api/users - Supabase 업데이트 시작')
+    console.log('PUT /api/users - 테이블: haru_users')
+    console.log('PUT /api/users - 조건: id =', params.id)
+    
     const { data: user, error } = await supabase
       .from('haru_users')
       .update(updateData)
@@ -95,9 +108,26 @@ export async function PUT(
         *,
         dietMethod:haru_diet_methods(*)
       `)
-      .single()
+      .maybeSingle()
 
-    if (error) throw error
+    console.log('PUT /api/users - Supabase 응답:')
+    console.log('  - data:', user)
+    console.log('  - error:', error)
+
+    if (error) {
+      console.error('PUT /api/users - Supabase 에러:', error)
+      console.error('PUT /api/users - 에러 코드:', error.code)
+      console.error('PUT /api/users - 에러 메시지:', error.message)
+      console.error('PUT /api/users - 에러 상세:', error.details)
+      throw error
+    }
+
+    if (!user) {
+      console.error('PUT /api/users - 사용자 없음:', params.id)
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    console.log('PUT /api/users - 업데이트 성공, 사용자 데이터:', user)
 
     // Convert snake_case to camelCase
     const formattedUser = {
@@ -119,7 +149,11 @@ export async function PUT(
 
     return NextResponse.json(formattedUser)
   } catch (error) {
-    console.error('Error updating user:', error)
+    console.error('PUT /api/users - 전체 에러 발생:')
+    console.error('  - 에러 타입:', typeof error)
+    console.error('  - 에러 객체:', error)
+    console.error('  - 에러 스택:', error instanceof Error ? error.stack : 'No stack trace')
+    console.error('  - 에러 메시지:', error instanceof Error ? error.message : String(error))
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { socialId: string } }
+) {
+  try {
+    const socialId = params.socialId
+    console.log('🔍 GET /api/users/social/[socialId] - socialId:', socialId)
+
+    const { data: user, error } = await supabase
+      .from('haru_users')
+      .select(`
+        *,
+        dietMethod:haru_diet_methods(*)
+      `)
+      .eq('social_id', socialId)
+      .single()
+
+    if (error) {
+      console.error('사용자 조회 실패:', error)
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+
+    console.log('✅ 사용자 조회 성공:', user.id)
+    return NextResponse.json(user)
+  } catch (error) {
+    console.error('Error fetching user by social ID:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { socialId: string } }

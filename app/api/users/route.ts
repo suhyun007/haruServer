@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       dietStartDate, 
       dailyCalorieGoal,
       deviceId,
+      timezone,
       // 소셜 로그인 관련 필드
       email,
       deviceType,
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
         diet_start_date: dietStartDate,
         daily_calorie_goal: parseInt(dailyCalorieGoal),
         device_id: deviceId,
+        timezone: timezone || 'Asia/Seoul',
         last_login_at: new Date().toISOString(),
         // 소셜 로그인 관련 필드
         email: email || null,
