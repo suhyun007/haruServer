@@ -131,13 +131,16 @@ export async function POST(request: NextRequest) {
     const imageUrl = publicUrlData.publicUrl;
 
     // haru_users 테이블에 profileImageUrl 업데이트
-    const { error: updateError } = await supabase
+    const nowIso = new Date().toISOString();
+    const { data: updatedUser, error: updateError } = await supabase
       .from('haru_users')
       .update({ 
         profile_image_url: imageUrl,
-        updated_at: new Date().toISOString(),
+        updated_at: nowIso,
       })
-      .eq('id', actualUserId);
+      .eq('id', actualUserId)
+      .select('id, updated_at')
+      .single();
 
     if (updateError) {
       console.error('Database update error:', updateError);
@@ -146,6 +149,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+    console.log('프로필 업데이트 완료:', { id: updatedUser?.id, updated_at: updatedUser?.updated_at });
 
     return NextResponse.json({
       success: true,
