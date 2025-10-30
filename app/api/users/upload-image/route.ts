@@ -41,9 +41,8 @@ export async function POST(request: NextRequest) {
       console.log('일반 로그인 사용자 ID 사용:', actualUserId);
     }
 
-    // 이미지를 버퍼로 변환
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // 이미지를 버퍼로 변환 (ArrayBufferLike → Uint8Array → Buffer)
+    const buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()));
 
     console.log('이미지 파일 정보:', {
       name: file.name,
@@ -55,19 +54,35 @@ export async function POST(request: NextRequest) {
     let resizedBuffer: Buffer;
 
     try {
-      // 1단계: 대용량 이미지를 먼저 2000px 이내로 축소 (inside)
-      const stage1 = await sharp(buffer)
-        .rotate()
-        .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
-        .toBuffer();
+      // 원본 메타 확인
+      const meta = await sharp(buffer).metadata();
+      const w = meta.width ?? 0;
+      const h = meta.height ?? 0;
 
-      // 2단계: 최종 썸네일 200x200 cover 후 JPEG 변환
-      resizedBuffer = await sharp(stage1)
-        .resize(200, 200, { fit: 'cover', position: 'center' })
-        .jpeg({ quality: 85 })
-        .toBuffer();
-      
-      console.log('Sharp 리사이징 성공');
+      let base: Buffer;
+      if (w > 1000 || h > 1000) {
+        base = await sharp(buffer)
+          .rotate()
+          .resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true })
+          .toBuffer();
+      } else {
+        base = buffer;
+      }
+
+      // 200px 초과면 200x200 cover, 200px 이하면 JPEG 변환만
+      if (w > 200 || h > 200) {
+        resizedBuffer = await sharp(base)
+          .resize(200, 200, { fit: 'cover', position: 'center' })
+          .jpeg({ quality: 80 })
+          .toBuffer();
+        console.log('Sharp 썸네일(200x200) 생성, 출력 바이트:', resizedBuffer.length);
+      } else {
+        resizedBuffer = await sharp(base)
+          .rotate()
+          .jpeg({ quality: 80 })
+          .toBuffer();
+        console.log('작은 이미지 JPEG 변환, 출력 바이트:', resizedBuffer.length);
+      }
     } catch (sharpError) {
       console.error('Sharp 리사이징 실패:', sharpError);
       
@@ -75,9 +90,9 @@ export async function POST(request: NextRequest) {
       try {
         resizedBuffer = await sharp(buffer)
           .rotate()
-          .jpeg({ quality: 85 })
+          .jpeg({ quality: 80 })
           .toBuffer();
-        console.log('JPEG 변환 성공');
+        console.log('JPEG 변환 성공, 출력 바이트:', resizedBuffer.length);
       } catch (jpegError) {
         console.error('JPEG 변환도 실패:', jpegError);
         
@@ -118,7 +133,10 @@ export async function POST(request: NextRequest) {
     // haru_users 테이블에 profileImageUrl 업데이트
     const { error: updateError } = await supabase
       .from('haru_users')
-      .update({ profile_image_url: imageUrl })
+      .update({ 
+        profile_image_url: imageUrl,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', actualUserId);
 
     if (updateError) {
