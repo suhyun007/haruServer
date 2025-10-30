@@ -55,13 +55,16 @@ export async function POST(request: NextRequest) {
     let resizedBuffer: Buffer;
 
     try {
-      // Sharp를 사용하여 이미지 리사이징 (200x200, cover)
-      resizedBuffer = await sharp(buffer)
-        .resize(200, 200, {
-          fit: 'cover',
-          position: 'center'
-        })
-        .jpeg({ quality: 80 })
+      // 1단계: 대용량 이미지를 먼저 2000px 이내로 축소 (inside)
+      const stage1 = await sharp(buffer)
+        .rotate()
+        .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
+        .toBuffer();
+
+      // 2단계: 최종 썸네일 200x200 cover 후 JPEG 변환
+      resizedBuffer = await sharp(stage1)
+        .resize(200, 200, { fit: 'cover', position: 'center' })
+        .jpeg({ quality: 85 })
         .toBuffer();
       
       console.log('Sharp 리사이징 성공');
@@ -71,7 +74,8 @@ export async function POST(request: NextRequest) {
       // Sharp 실패 시 원본 이미지를 그대로 사용 (JPEG로 변환 시도)
       try {
         resizedBuffer = await sharp(buffer)
-          .jpeg({ quality: 80 })
+          .rotate()
+          .jpeg({ quality: 85 })
           .toBuffer();
         console.log('JPEG 변환 성공');
       } catch (jpegError) {
@@ -92,7 +96,7 @@ export async function POST(request: NextRequest) {
       .from('harufit-images')
       .upload(filePath, resizedBuffer, {
         contentType: 'image/jpeg',
-        cacheControl: '3600',
+        cacheControl: '0',
         upsert: true,
       });
 
