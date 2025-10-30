@@ -93,8 +93,10 @@ export async function PUT(
     
     console.log('PUT /api/users - 업데이트할 데이터:', updateData)
     
-    // 항상 last_login_at 업데이트
-    updateData.last_login_at = new Date().toISOString()
+    // 항상 updated_at/last_login_at 업데이트
+    const nowIso = new Date().toISOString()
+    updateData.updated_at = nowIso
+    updateData.last_login_at = nowIso
 
     console.log('PUT /api/users - Supabase 업데이트 시작')
     console.log('PUT /api/users - 테이블: haru_users')

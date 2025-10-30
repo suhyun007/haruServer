@@ -58,9 +58,10 @@ export async function POST(request: NextRequest) {
       const meta = await sharp(buffer).metadata();
       const w = meta.width ?? 0;
       const h = meta.height ?? 0;
+      const noMeta = !w || !h; // 메타가 없으면 강제 리사이즈 경로 사용
 
       let base: Buffer;
-      if (w > 1000 || h > 1000) {
+      if (noMeta || w > 1000 || h > 1000) {
         base = await sharp(buffer)
           .rotate()
           .resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true })
@@ -69,8 +70,8 @@ export async function POST(request: NextRequest) {
         base = buffer;
       }
 
-      // 200px 초과면 200x200 cover, 200px 이하면 JPEG 변환만
-      if (w > 200 || h > 200) {
+      // 메타 없음 또는 200px 초과이면 200x200 cover, 이하면 JPEG 변환만
+      if (noMeta || w > 200 || h > 200) {
         resizedBuffer = await sharp(base)
           .resize(200, 200, { fit: 'cover', position: 'center' })
           .jpeg({ quality: 80 })
