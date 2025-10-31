@@ -70,10 +70,10 @@ export async function POST(request: NextRequest) {
         base = buffer;
       }
 
-      // 메타 없음 또는 200px 초과이면 200x200 cover, 이하면 JPEG 변환만
-      if (noMeta || w > 200 || h > 200) {
+      // 메타 없음 또는 80px 초과이면 80x80 cover, 이하면 JPEG 변환만
+      if (noMeta || w > 80 || h > 80) {
         resizedBuffer = await sharp(base)
-          .resize(200, 200, { fit: 'cover', position: 'center' })
+          .resize(80, 80, { fit: 'cover', position: 'center' })
           .jpeg({ quality: 80 })
           .toBuffer();
         console.log('Sharp 썸네일(200x200) 생성, 출력 바이트:', resizedBuffer.length);
