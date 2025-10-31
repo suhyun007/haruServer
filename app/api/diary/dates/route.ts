@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 // Next 권장 설정: 동적 라우트로 강제, 캐시 비활성화 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   try {
