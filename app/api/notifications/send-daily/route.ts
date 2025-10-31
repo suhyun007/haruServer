@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ 
         success: true, 
         message: "알림이 활성화된 사용자가 없습니다.",
-        currentTime 
+        currentTime: now.toISOString()
       });
     }
 
@@ -126,14 +126,14 @@ export async function GET(request: NextRequest) {
         }
       } catch (error) {
         console.error(`사용자 ${user.id} 알림 전송 오류:`, error);
-        results.push({ userId: user.id, success: false, error: error.message });
+        results.push({ userId: user.id, success: false, error: error instanceof Error ? error.message : String(error) });
       }
     }
 
     return NextResponse.json({ 
       success: true, 
       message: `${results.length}명의 사용자에게 알림 전송 완료`,
-      currentTime,
+      currentTime: now.toISOString(),
       results 
     });
 
