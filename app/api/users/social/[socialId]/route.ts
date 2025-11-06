@@ -58,18 +58,49 @@ export async function DELETE(
     console.log('📱 조회된 사용자 ID:', userId)
 
     // 2. 프로필 이미지 삭제 (Storage에서)
+    // profiles 폴더의 모든 파일을 가져와서 해당 사용자 ID가 포함된 파일 찾기
+    const { data: files, error: listError } = await supabase.storage
+      .from('harufit-images')
+      .list('profiles')
+
+    if (!listError && files && files.length > 0) {
+      // 사용자 ID가 포함된 모든 파일 찾기
+      const userImageFiles = files.filter(file => 
+        file.name.includes(`profile_${userId}`) || 
+        file.name.startsWith(`profile_${userId}.`)
+      )
+      
+      if (userImageFiles.length > 0) {
+        const filePaths = userImageFiles.map(file => `profiles/${file.name}`)
+        console.log('🗑️ 삭제할 프로필 이미지 파일들:', filePaths)
+        
+        const { error: imageDeleteError } = await supabase.storage
+          .from('harufit-images')
+          .remove(filePaths)
+
+        if (imageDeleteError) {
+          console.error('프로필 이미지 삭제 실패:', imageDeleteError)
+          // 에러가 발생해도 계속 진행
+        } else {
+          console.log('✅ 프로필 이미지 삭제 완료:', filePaths)
+        }
+      } else {
+        console.log('⚠️ 해당 사용자의 프로필 이미지 파일을 찾을 수 없음')
+      }
+    }
+    
+    // 추가로 정확한 경로로도 삭제 시도 (혹시 모를 경우를 대비)
     const imageFileName = `profile_${userId}.jpg`
     const imageFilePath = `profiles/${imageFileName}`
     
-    const { error: imageDeleteError } = await supabase.storage
+    const { error: directDeleteError } = await supabase.storage
       .from('harufit-images')
       .remove([imageFilePath])
 
-    if (imageDeleteError) {
-      console.error('프로필 이미지 삭제 실패 (무시하고 진행):', imageDeleteError)
-      // 이미지가 없을 수도 있으므로 에러를 무시하고 계속 진행
+    if (directDeleteError) {
+      console.log('⚠️ 직접 경로 삭제 실패 (파일 없음 또는 이미 삭제됨):', directDeleteError.message)
     } else {
-      console.log('✅ 프로필 이미지 삭제 완료:', imageFilePath)
+      console.log('✅ 직접 경로로 프로필 이미지 삭제 완료:', imageFilePath)
     }
 
     // 3. 체중 기록 삭제
