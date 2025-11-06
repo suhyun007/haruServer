@@ -165,25 +165,60 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // 먼저 관련된 체중 기록 삭제
+    console.log('🗑️ DELETE /api/users/[id] - userId:', params.id)
+
+    // 1. 프로필 이미지 삭제 (Storage에서)
+    const imageFileName = `profile_${params.id}.jpg`
+    const imageFilePath = `profiles/${imageFileName}`
+    
+    const { error: imageDeleteError } = await supabase.storage
+      .from('harufit-images')
+      .remove([imageFilePath])
+
+    if (imageDeleteError) {
+      console.error('프로필 이미지 삭제 실패 (무시하고 진행):', imageDeleteError)
+      // 이미지가 없을 수도 있으므로 에러를 무시하고 계속 진행
+    } else {
+      console.log('✅ 프로필 이미지 삭제 완료:', imageFilePath)
+    }
+
+    // 2. 관련된 체중 기록 삭제
     const { error: weightError } = await supabase
       .from('haru_weight_records')
       .delete()
       .eq('user_id', params.id)
 
     if (weightError) {
-      console.error('Error deleting weight records:', weightError)
+      console.error('체중 기록 삭제 실패:', weightError)
+      return NextResponse.json({ error: 'Failed to delete weight records' }, { status: 500 })
     }
+    console.log('✅ 체중 기록 삭제 완료')
 
-    // 사용자 삭제
+    // 3. 관련된 다이어리 삭제 (CASCADE가 있지만 명시적으로 삭제)
+    const { error: diaryError } = await supabase
+      .from('haru_diary')
+      .delete()
+      .eq('user_id', params.id)
+
+    if (diaryError) {
+      console.error('다이어리 삭제 실패:', diaryError)
+      return NextResponse.json({ error: 'Failed to delete diary records' }, { status: 500 })
+    }
+    console.log('✅ 다이어리 삭제 완료')
+
+    // 4. 사용자 삭제 (haru_users 테이블에서 삭제)
     const { error } = await supabase
       .from('haru_users')
       .delete()
       .eq('id', params.id)
 
-    if (error) throw error
+    if (error) {
+      console.error('사용자 삭제 실패:', error)
+      throw error
+    }
 
-    return NextResponse.json({ success: true })
+    console.log('✅ 사용자 삭제 완료 - userId:', params.id)
+    return NextResponse.json({ success: true, message: 'User deleted successfully' })
   } catch (error) {
     console.error('Error deleting user:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
