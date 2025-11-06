@@ -57,7 +57,22 @@ export async function DELETE(
     const userId = user.id
     console.log('📱 조회된 사용자 ID:', userId)
 
-    // 2. 체중 기록 삭제
+    // 2. 프로필 이미지 삭제 (Storage에서)
+    const imageFileName = `profile_${userId}.jpg`
+    const imageFilePath = `profiles/${imageFileName}`
+    
+    const { error: imageDeleteError } = await supabase.storage
+      .from('harufit-images')
+      .remove([imageFilePath])
+
+    if (imageDeleteError) {
+      console.error('프로필 이미지 삭제 실패 (무시하고 진행):', imageDeleteError)
+      // 이미지가 없을 수도 있으므로 에러를 무시하고 계속 진행
+    } else {
+      console.log('✅ 프로필 이미지 삭제 완료:', imageFilePath)
+    }
+
+    // 3. 체중 기록 삭제
     const { error: weightError } = await supabase
       .from('haru_weight_records')
       .delete()
@@ -70,7 +85,19 @@ export async function DELETE(
 
     console.log('✅ 체중 기록 삭제 완료')
 
-    // 3. 사용자 삭제
+    // 4. 관련된 다이어리 삭제 (CASCADE가 있지만 명시적으로 삭제)
+    const { error: diaryError } = await supabase
+      .from('haru_diary')
+      .delete()
+      .eq('user_id', userId)
+
+    if (diaryError) {
+      console.error('다이어리 삭제 실패:', diaryError)
+      return NextResponse.json({ error: 'Failed to delete diary records' }, { status: 500 })
+    }
+    console.log('✅ 다이어리 삭제 완료')
+
+    // 5. 사용자 삭제 (haru_users 테이블에서 삭제)
     const { error: deleteError } = await supabase
       .from('haru_users')
       .delete()
