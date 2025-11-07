@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const { data: dietMethods, error } = await supabase
       .from('haru_diet_methods')
-      .select('*')
+      .select('id, name, description, short_description, name_en, name_ja, name_zh, description_en, description_ja, description_zh, short_description_en, short_description_ja, short_description_zh')
       .order('name', { ascending: true })
 
     if (error) throw error
