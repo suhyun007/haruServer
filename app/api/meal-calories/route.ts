@@ -13,6 +13,8 @@ type MealItem = {
 
 type MealRow = {
   id: string;
+  user_id?: string | null;
+  diary_id?: string | null;
   meal_key: string;
   date: string | null;
   items: MealItem[] | null;
