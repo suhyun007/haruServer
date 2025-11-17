@@ -1,19 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const OPEN_FOOD_FACTS_ENDPOINT = 'https://world.openfoodfacts.org/cgi/search.pl'
-
-type Nutriments = Record<string, unknown>
-
-type OpenFoodFactsProduct = {
-  id?: string
-  _id?: string
-  product_name?: string
-  generic_name?: string
-  brands?: string
-  serving_size?: string
-  serving_quantity?: number
-  nutriments?: Nutriments
-}
+import { supabase } from '@/lib/supabase'
 
 type FoodSearchResult = {
   id: string
@@ -23,132 +9,76 @@ type FoodSearchResult = {
   servingQuantity?: number
   caloriesPerServing?: number
   caloriesPer100g?: number
+  carbsPerServing?: number
+  proteinPerServing?: number
+  fatPerServing?: number
 }
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const query = (searchParams.get('query') ?? searchParams.get('q') ?? '').trim()
-  const language = (searchParams.get('language') ?? searchParams.get('lc') ?? '').trim()
-  const limitParam = searchParams.get('limit') ?? searchParams.get('page_size') ?? '10'
-  const limit = Math.min(Math.max(Number.parseInt(limitParam, 10) || 10, 1), 25)
+  const limitParam = searchParams.get('limit') ?? searchParams.get('page_size') ?? '50'
+  const limit = Math.min(Math.max(Number.parseInt(limitParam, 10) || 50, 1), 100)
+  const offsetParam = searchParams.get('offset') ?? '0'
+  const offset = Math.max(Number.parseInt(offsetParam, 10) || 0, 0)
 
   if (query.length < 2) {
     return NextResponse.json({ items: [], total: 0 })
   }
 
-  const params = new URLSearchParams({
-    search_terms: query,
-    search_simple: '1',
-    action: 'process',
-    json: '1',
-    page_size: limit.toString(),
-    fields: 'id,product_name,generic_name,brands,serving_size,serving_quantity,nutriments',
-  })
-
-  if (language) {
-    params.set('lc', language)
-  }
-
-  const url = `${OPEN_FOOD_FACTS_ENDPOINT}?${params.toString()}`
-
   try {
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'HaruFit/1.0',
-      },
-      next: { revalidate: 0 },
-    })
+    // 접두사 검색으로 성능 개선 (예: '스타벅스%' 형태)
+    const pattern = `${query}%`
 
-    if (!response.ok) {
-      console.error(
-        'OpenFoodFacts request failed:',
-        response.status,
-        await response.text()
+    const { data, error } = await supabase
+      .from('food_items')
+      .select(
+        'id, name_kor, brand, serving_size, serving_unit, calories, carbs, protein, fat'
       )
+      // 상품명(name_kor) 또는 업체/브랜드명(brand)이 검색어로 시작하면 매칭
+      .or(`name_kor.ilike.${pattern},brand.ilike.${pattern}`)
+      .order('name_kor', { ascending: true })
+      .range(offset, offset + limit - 1)
+
+    if (error) {
+      console.error('❌ Supabase food_items search error:', error)
       return NextResponse.json(
-        { error: 'Failed to fetch food data from upstream service.' },
-        { status: 502 }
+        { error: 'Failed to search foods from database.', items: [], total: 0 },
+        { status: 200 }
       )
     }
 
-    const data = (await response.json()) as { products?: OpenFoodFactsProduct[] }
-    const products = data.products ?? []
+    const items: FoodSearchResult[] =
+      (data ?? []).map((row: any) => {
+        const servingSizeLabel =
+          row.serving_size != null && row.serving_unit
+            ? `${row.serving_size}${row.serving_unit}`
+            : undefined
 
-    const items = products
-      .map((product) => mapProduct(product))
-      .filter((item): item is FoodSearchResult => Boolean(item))
+        return {
+          id: row.id as string,
+          name: (row.name_kor as string) ?? '',
+          brand: (row.brand as string) ?? undefined,
+          servingSize: servingSizeLabel,
+          servingQuantity: row.serving_size ?? undefined,
+          caloriesPerServing: row.calories ?? undefined,
+          caloriesPer100g: row.calories ?? undefined,
+          carbsPerServing: row.carbs ?? undefined,
+          proteinPerServing: row.protein ?? undefined,
+          fatPerServing: row.fat ?? undefined,
+        }
+      }) ?? []
 
     return NextResponse.json({
       items,
       total: items.length,
     })
   } catch (error) {
-    console.error('OpenFoodFacts request error:', error)
+    console.error('❌ Unexpected food search error:', error)
     return NextResponse.json(
-      { error: 'Unexpected error while fetching food data.' },
-      { status: 500 }
+      { error: 'Unexpected error while searching foods.', items: [], total: 0 },
+      { status: 200 }
     )
   }
-}
-
-function mapProduct(product: OpenFoodFactsProduct): FoodSearchResult | null {
-  const id = product.id ?? product._id
-  const rawName = product.product_name ?? product.generic_name ?? ''
-  if (!id || !rawName) {
-    return null
-  }
-
-  const brand = extractPrimaryBrand(product.brands)
-  const nutriments = product.nutriments ?? {}
-
-  const caloriesPerServing =
-    extractNumber(nutriments, ['energy-kcal_serving', 'energy-kcal_value', 'energy_serving', 'energy_value']) ??
-    convertKjToKcal(extractNumber(nutriments, ['energy_serving']))
-
-  const caloriesPer100g =
-    extractNumber(nutriments, ['energy-kcal_100g', 'energy_100g']) ??
-    convertKjToKcal(extractNumber(nutriments, ['energy_100g']))
-
-  return {
-    id,
-    name: rawName,
-    brand: brand ?? undefined,
-    servingSize: product.serving_size ?? undefined,
-    servingQuantity: product.serving_quantity ?? undefined,
-    caloriesPerServing: caloriesPerServing ?? undefined,
-    caloriesPer100g: caloriesPer100g ?? undefined,
-  }
-}
-
-function extractPrimaryBrand(brands?: string | null): string | null {
-  if (!brands) return null
-  return (
-    brands
-      .split(',')
-      .map((entry) => entry.trim())
-      .find((entry) => entry.length > 0) ?? null
-  )
-}
-
-function extractNumber(nutriments: Nutriments, keys: string[]): number | null {
-  for (const key of keys) {
-    const value = nutriments[key]
-    if (typeof value === 'number') {
-      return value
-    }
-    if (typeof value === 'string') {
-      const parsed = Number.parseFloat(value)
-      if (!Number.isNaN(parsed)) {
-        return parsed
-      }
-    }
-  }
-  return null
-}
-
-function convertKjToKcal(value: number | null): number | null {
-  if (!value) return null
-  return value / 4.184
 }
 

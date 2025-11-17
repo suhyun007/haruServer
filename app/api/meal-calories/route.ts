@@ -26,8 +26,6 @@ type MealRow = {
 
 const MEAL_KEYS = new Set(["breakfast", "lunch", "dinner", "snack"]);
 
-const defaultMood = "🙂";
-
 function calculateTotals(items: MealItem[] = []) {
   return items.reduce(
     (acc, item) => {
@@ -171,7 +169,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure diary exists for the selected date
+    // 이미 해당 날짜에 다이어리가 있는지 확인 (있으면 meal과 연결만 해줌)
     const { data: existingDiary, error: diaryFetchError } = await supabase
       .from("haru_diary")
       .select("id")
@@ -187,41 +185,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let diaryId = existingDiary?.id as string | undefined;
-    console.log(`💾 Existing diary: ${diaryId ? `id=${diaryId}` : 'not found'}`);
-
-    if (!diaryId) {
-      console.log(`💾 Creating new diary for date ${normalisedDate}`);
-      const { data: diaryInsert, error: diaryInsertError } = await supabase
-        .from("haru_diary")
-        .insert({
-          user_id: userId,
-          date: normalisedDate,
-          mood: defaultMood,
-          note: "",
-        })
-        .select("id")
-        .single();
-
-      if (diaryInsertError) {
-        console.error("❌ Error creating diary for meal save:", diaryInsertError);
-        return NextResponse.json(
-          { error: "Failed to create diary" },
-          { status: 500 },
-        );
-      }
-
-      diaryId = diaryInsert?.id as string | undefined;
-      console.log(`💾 Created diary: id=${diaryId}`);
-    }
-
-    if (!diaryId) {
-      console.error("❌ Diary not available after creation");
-      return NextResponse.json(
-        { error: "Diary not available" },
-        { status: 500 },
-      );
-    }
+    // 다이어리가 이미 있는 경우에만 diary_id로 연결 (없으면 null 유지)
+    const diaryId = existingDiary?.id as string | undefined;
+    console.log(`💾 Existing diary for meal linkage: ${diaryId ? `id=${diaryId}` : 'none (meal will not create diary)'}`);
 
     // If no items, delete existing meal entry
     if (itemList.length === 0) {

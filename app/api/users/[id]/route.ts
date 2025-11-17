@@ -37,6 +37,8 @@ export async function GET(
       dailyCalorieGoal: user.daily_calorie_goal,
       dietStartDate: user.diet_start_date,
       profileImageUrl: user.profile_image_url,
+      notification_enabled: user.notification_enabled ?? false,
+      notification_time: user.notification_time ?? null,
       dietMethod: user.dietMethod,
     }
 
@@ -88,7 +90,10 @@ export async function PUT(
     if (dailyCalorieGoal !== undefined) updateData.daily_calorie_goal = parseInt(dailyCalorieGoal)
     if (dietStartDate !== undefined) updateData.diet_start_date = dietStartDate
     if (deviceId !== undefined) updateData.device_id = deviceId
-    if (notification_enabled !== undefined) updateData.notification_enabled = notification_enabled
+    // 알림 설정: haru_users.notification_enabled 컬럼 사용
+    if (notification_enabled !== undefined) {
+      updateData.notification_enabled = notification_enabled
+    }
     if (notification_time !== undefined) updateData.notification_time = notification_time
     
     console.log('PUT /api/users - 업데이트할 데이터:', updateData)

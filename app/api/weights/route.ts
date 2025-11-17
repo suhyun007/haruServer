@@ -44,19 +44,52 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { userId, weight, weightUnit, date, memo } = body
 
-    const { data: weightRecord, error: weightError } = await supabase
-      .from('haru_weight_records')
-      .insert({
-        user_id: userId,
-        weight: parseFloat(weight),
-        weight_unit: weightUnit,
-        date: new Date(date).toISOString(),
-        memo,
-      })
-      .select()
-      .single()
+    const normalisedDate = new Date(date).toISOString().split('T')[0]
 
-    if (weightError) throw weightError
+    // 먼저 같은 날짜의 기존 기록이 있는지 확인
+    const { data: existingRecord, error: existingError } = await supabase
+      .from('haru_weight_records')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', normalisedDate)
+      .maybeSingle()
+
+    if (existingError && existingError.code !== 'PGRST116') throw existingError
+
+    let weightRecord
+    if (existingRecord) {
+      // 기존 기록이 있으면 업데이트
+      const { data, error } = await supabase
+        .from('haru_weight_records')
+        .update({
+          weight: parseFloat(weight),
+          weight_unit: weightUnit,
+          date: normalisedDate,
+          memo,
+        })
+        .eq('id', existingRecord.id)
+        .select()
+        .single()
+
+      if (error) throw error
+      weightRecord = data
+    } else {
+      const { data, error } = await supabase
+        .from('haru_weight_records')
+        .insert({
+          user_id: userId,
+          weight: parseFloat(weight),
+          weight_unit: weightUnit,
+          date: normalisedDate,
+          memo,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      weightRecord = data
+    }
+
 
     // Update user's current weight
     const { error: userError } = await supabase
