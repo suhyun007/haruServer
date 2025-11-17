@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "import-food-items": "tsx scripts/import_food_items.ts"
+    "import-food-items": "tsx scripts/import_food_items.ts",
+    "import-food-items-missing": "tsx scripts/import_food_items_missing.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -27,15 +27,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 접두사 검색으로 성능 개선 (예: '스타벅스%' 형태)
-    const pattern = `${query}%`
+    // trigram 인덱스를 사용해 부분 일치 검색 (예: '%진짬뽕%') 도 빠르게 처리
+    const pattern = `%${query}%`
 
     const { data, error } = await supabase
       .from('food_items')
       .select(
         'id, name_kor, brand, serving_size, serving_unit, calories, carbs, protein, fat'
       )
-      // 상품명(name_kor) 또는 업체/브랜드명(brand)이 검색어로 시작하면 매칭
+      // 상품명(name_kor) 또는 업체/브랜드명(brand)에 검색어가 포함되면 매칭
       .or(`name_kor.ilike.${pattern},brand.ilike.${pattern}`)
       .order('name_kor', { ascending: true })
       .range(offset, offset + limit - 1)
