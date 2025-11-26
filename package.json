@@ -7,8 +7,25 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "filter-japan-nutrition": "tsx scripts/filter_japan_nutrition.ts",
     "import-food-items": "tsx scripts/import_food_items.ts",
-    "import-food-items-missing": "tsx scripts/import_food_items_missing.ts"
+    "import-food-items-missing": "tsx scripts/import_food_items_missing.ts",
+    "build-food-sqlite": "tsx scripts/build_food_sqlite.ts",
+    "build-food-sqlite-jp": "tsx scripts/build_food_sqlite_jp.ts",
+    "fetch-seven-eleven": "tsx scripts/fetch_seven_eleven.ts",
+    "fetch-seven-eleven2": "tsx scripts/fetch_seven_eleven2.ts",
+    "fetch-lawson": "tsx scripts/fetch_lawson.ts",
+    "fetch-familymart": "tsx scripts/fetch_familymart.ts",
+        "fetch-topvalu": "tsx scripts/fetch_topvalu.ts",
+    "export-japan-origin": "tsx scripts/export_japan_origin_csv.ts",
+    "filter-countries-nutrition": "tsx scripts/filter_countries_nutrition.ts",
+    "merge-en-csv": "tsx scripts/merge_en_csv_files.ts",
+    "build-food-sqlite-en": "tsx scripts/build_food_sqlite_en.ts",
+    "build-food-sqlite-ca": "tsx scripts/build_food_sqlite_ca.ts",
+    "export-fr-ciqual": "tsx scripts/export_fr_ciqual_csv.ts",
+    "build-food-sqlite-fr": "tsx scripts/build_food_sqlite_fr.ts",
+    "export-au-csv": "tsx scripts/export_au_csv.ts",
+    "build-food-sqlite-au": "tsx scripts/build_food_sqlite_au.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -16,15 +33,19 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.76.0",
     "axios": "^1.13.2",
+    "better-sqlite3": "^12.4.1",
     "csv-parse": "^6.1.0",
     "fast-xml-parser": "^5.3.2",
     "google-auth-library": "^10.5.0",
+    "cheerio": "^1.0.0-rc.12",
     "next": "^14.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "sharp": "^0.34.4"
+    "sharp": "^0.34.4",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.19.25",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
