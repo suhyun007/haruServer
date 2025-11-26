@@ -38,3 +38,9 @@ next-env.d.ts
 *.db-journal
 prisma/migrations
 
+# food database files (too large for git)
+*.sqlite
+*.sqlite3
+data/foodData/*.sqlite
+data/foodData/*.sqlite3
+
