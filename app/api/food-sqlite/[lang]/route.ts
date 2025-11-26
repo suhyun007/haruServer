@@ -22,6 +22,21 @@ export async function GET(
     )
   }
 
+  // 큰 파일(en, fr, kr)은 JSON+gzip으로 변환되었으므로 SQLite 파일이 없을 수 있음
+  // 작은 파일(au, ca, jp)만 SQLite로 제공
+  const largeFiles = new Set(['us', 'fr', 'kr'])
+  
+  if (largeFiles.has(lang)) {
+    // 큰 파일은 JSON+gzip으로 변환되었으므로 SQLite 다운로드 불가
+    return NextResponse.json(
+      { 
+        error: 'This language uses JSON format. Please use /api/food-search/[lang] endpoint instead.',
+        message: 'Large files (en, fr, kr) have been converted to JSON+gzip format for better performance.'
+      },
+      { status: 404 }
+    )
+  }
+
   const filePath = path.join(DATA_DIR, `foods_${lang}.sqlite`)
 
   try {

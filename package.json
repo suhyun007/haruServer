@@ -25,7 +25,8 @@
     "export-fr-ciqual": "tsx scripts/export_fr_ciqual_csv.ts",
     "build-food-sqlite-fr": "tsx scripts/build_food_sqlite_fr.ts",
     "export-au-csv": "tsx scripts/export_au_csv.ts",
-    "build-food-sqlite-au": "tsx scripts/build_food_sqlite_au.ts"
+    "build-food-sqlite-au": "tsx scripts/build_food_sqlite_au.ts",
+    "convert-sqlite-to-json": "tsx scripts/convert_sqlite_to_json.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
