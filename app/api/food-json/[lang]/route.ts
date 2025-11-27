@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { promises as fs } from 'fs'
-import path from 'path'
+import { supabase } from '@/lib/supabase'
 
 const SUPPORTED_LANGS = new Set(['kr', 'jp', 'zh', 'us', 'au', 'ca', 'fr'])
-const DATA_DIR = path.join(process.cwd(), 'data', 'foodData')
-const JSON_DIR = path.join(DATA_DIR, 'json')
 
 export async function GET(
   request: NextRequest,
@@ -24,7 +21,7 @@ export async function GET(
   }
 
   // 큰 파일만 JSON 제공
-  const largeFiles = new Set(['us', 'fr', 'kr'])
+  const largeFiles = new Set(['us', 'fr', 'kr', 'jp'])
   if (!largeFiles.has(lang)) {
     return NextResponse.json(
       { error: 'This language uses SQLite format' },
@@ -33,14 +30,28 @@ export async function GET(
   }
 
   try {
-    // JSON 파일 목록 가져오기
-    const files = await fs.readdir(JSON_DIR)
-    const langFiles = files
-      .filter(f => 
-        f.startsWith(`${lang}.json.gz`) || 
-        (f.startsWith(`${lang}_part`) && f.endsWith('.json.gz'))
+    // Supabase Storage에서 JSON 파일 목록 가져오기
+    const { data: files, error: listError } = await supabase.storage
+      .from('food-json')
+      .list(`${lang}`, {
+        limit: 100,
+        sortBy: { column: 'name', order: 'asc' }
+      })
+
+    if (listError) {
+      console.error('Failed to list files:', listError)
+      return NextResponse.json(
+        { error: 'Failed to list files', details: listError.message },
+        { status: 500 }
       )
-      .sort()
+    }
+
+    const langFiles = (files || [])
+      .filter(f => 
+        f.name.startsWith(`${lang}.json.gz`) || 
+        (f.name.startsWith(`${lang}_part`) && f.name.endsWith('.json.gz'))
+      )
+      .sort((a, b) => a.name.localeCompare(b.name))
 
     if (langFiles.length === 0) {
       return NextResponse.json(
@@ -56,16 +67,16 @@ export async function GET(
     if (part) {
       // 특정 파트만 반환
       const partNum = parseInt(part, 10)
-      let partFile: string | undefined
+      let partFile: typeof langFiles[0] | undefined
       
       if (partNum === 1 && langFiles.length > 0) {
         // 첫 번째 파트: part1이거나 단일 파일
-        partFile = langFiles.find(f => f === `${lang}.json.gz`) || 
-                   langFiles.find(f => f === `${lang}_part1.json.gz`) ||
+        partFile = langFiles.find(f => f.name === `${lang}.json.gz`) || 
+                   langFiles.find(f => f.name === `${lang}_part1.json.gz`) ||
                    langFiles[0]
       } else {
         // 나머지 파트: partN 형식
-        partFile = langFiles.find(f => f.includes(`_part${partNum}.json.gz`))
+        partFile = langFiles.find(f => f.name.includes(`_part${partNum}.json.gz`))
       }
       
       if (!partFile) {
@@ -75,34 +86,43 @@ export async function GET(
         )
       }
 
-      const filePath = path.join(JSON_DIR, partFile)
-      const file = await fs.readFile(filePath)
-      const stats = await fs.stat(filePath)
+      // Supabase Storage에서 파일 다운로드
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('food-json')
+        .download(`${lang}/${partFile.name}`)
 
-      return new NextResponse(file, {
+      if (downloadError || !fileData) {
+        console.error('Failed to download file:', downloadError)
+        return NextResponse.json(
+          { error: 'Failed to download file', details: downloadError?.message },
+          { status: 500 }
+        )
+      }
+
+      const arrayBuffer = await fileData.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      return new NextResponse(buffer, {
         headers: {
           'Content-Type': 'application/gzip',
-          'Content-Disposition': `attachment; filename="${partFile}"`,
+          'Content-Disposition': `attachment; filename="${partFile.name}"`,
           'Cache-Control': 'public, max-age=86400',
-          'Last-Modified': stats.mtime.toUTCString(),
-          'ETag': `"${stats.mtime.getTime()}-${stats.size}"`,
+          'Last-Modified': new Date(partFile.updated_at || partFile.created_at || Date.now()).toUTCString(),
+          'ETag': `"${partFile.id || partFile.name}"`,
         },
       })
     }
 
     // 모든 파트 정보 반환
-    const parts = await Promise.all(
-      langFiles.map(async (fileName) => {
-        const filePath = path.join(JSON_DIR, fileName)
-        const stats = await fs.stat(filePath)
-        return {
-          fileName,
-          size: stats.size,
-          modifiedAt: stats.mtime.toISOString(),
-          modifiedTimestamp: stats.mtime.getTime(),
-        }
-      })
-    )
+    const parts = langFiles.map((file) => {
+      const updatedAt = file.updated_at || file.created_at || new Date().toISOString()
+      return {
+        fileName: file.name,
+        size: file.metadata?.size || 0,
+        modifiedAt: updatedAt,
+        modifiedTimestamp: new Date(updatedAt).getTime(),
+      }
+    })
 
     return NextResponse.json({
       lang,

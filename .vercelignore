@@ -1,0 +1,5 @@
+# Exclude large JSON files from Vercel function bundle
+data/foodData/json/
+data/foodData/*.sqlite
+data/foodData/*.sqlite3
+

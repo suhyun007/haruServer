@@ -44,3 +44,6 @@ prisma/migrations
 data/foodData/*.sqlite
 data/foodData/*.sqlite3
 
+# Exception: foods_kr.sqlite is allowed (small enough)
+!data/foodData/foods_kr.sqlite
+
