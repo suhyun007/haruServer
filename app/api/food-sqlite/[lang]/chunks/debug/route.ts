@@ -63,7 +63,7 @@ export async function GET(
       })) || [],
       listError: listError ? {
         message: listError.message,
-        statusCode: listError.statusCode,
+        name: listError.name,
       } : null,
     }, { status: 200 })
   } catch (error: any) {

@@ -55,7 +55,7 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
-    console.log('PUT /api/users - 요청 데이터:', body)
+    console.log('PUT /api/users - 요청 데이터:', JSON.stringify(body, null, 2))
     console.log('PUT /api/users - 사용자 ID:', params.id)
     
     const { 
@@ -75,9 +75,18 @@ export async function PUT(
       notification_enabled,
       notification_time
     } = body
+    
+    console.log('PUT /api/users - 추출된 nickname:', nickname)
+    console.log('PUT /api/users - nickname 타입:', typeof nickname)
+    console.log('PUT /api/users - nickname === undefined:', nickname === undefined)
 
     const updateData: any = {}
-    if (nickname !== undefined) updateData.nickname = nickname
+    if (nickname !== undefined && nickname !== null) {
+      updateData.nickname = nickname
+      console.log('PUT /api/users - nickname 업데이트:', nickname)
+    } else {
+      console.log('PUT /api/users - nickname이 undefined 또는 null입니다')
+    }
     if (age !== undefined) updateData.age = parseInt(age)
     if (gender !== undefined) updateData.gender = gender
     if (height !== undefined) updateData.height = parseFloat(height)
@@ -135,11 +144,13 @@ export async function PUT(
     }
 
     console.log('PUT /api/users - 업데이트 성공, 사용자 데이터:', user)
+    console.log('PUT /api/users - 업데이트된 nickname:', user.nickname)
+    console.log('PUT /api/users - updateData.nickname:', updateData.nickname)
 
     // Convert snake_case to camelCase
     const formattedUser = {
       id: user.id,
-      nickname: user.nickname,
+      nickname: user.nickname || updateData.nickname || user.nickname, // 업데이트된 값 우선
       age: user.age,
       gender: user.gender,
       height: user.height,
