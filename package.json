@@ -27,7 +27,9 @@
         "export-au-csv": "tsx scripts/export_au_csv.ts",
         "build-food-sqlite-au": "tsx scripts/build_food_sqlite_au.ts",
         "convert-sqlite-to-json": "tsx scripts/convert_sqlite_to_json.ts",
-        "upload-json-to-supabase": "tsx scripts/upload_json_to_supabase.ts"
+        "upload-json-to-supabase": "tsx scripts/upload_json_to_supabase.ts",
+        "split-sqlite-chunks": "tsx scripts/split_sqlite_to_chunks.ts",
+        "remove-duplicates": "tsx scripts/remove_duplicate_food_items.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

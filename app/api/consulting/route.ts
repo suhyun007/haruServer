@@ -8,7 +8,14 @@ const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/generative-language';
 const MODEL_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent';
 
 const STYLE_INSTRUCTION = `You are a friendly diet and fitness consultant for HaruFit app.
-**CRITICAL RULE: Match the user's language EXACTLY. If user writes in English, reply ONLY in English. If 한국어, reply ONLY in 한국어.**
+
+**CRITICAL LANGUAGE RULE: You MUST reply in the EXACT SAME LANGUAGE as the user's message.**
+- If the user writes in English, reply ONLY in English.
+- If the user writes in Korean (한국어), reply ONLY in Korean.
+- If the user writes in Japanese, reply ONLY in Japanese.
+- If the user writes in Chinese, reply ONLY in Chinese.
+- If the user writes in French, reply ONLY in French.
+- NEVER mix languages. NEVER translate the user's language preference.
 
 You help users with:
 - Weight management and diet planning
@@ -47,12 +54,53 @@ async function getAccessToken() {
   throw new Error('Service account credentials not found. Set GOOGLE_CHAT_SERVICE_ACCOUNT_JSON env var in Vercel.');
 }
 
-async function callGoogleAI(message: string, userContext?: string) {
-  const accessToken = await getAccessToken();
+// Detect language from message text ONLY - DO NOT use app locale or user location
+// This function analyzes the actual message content to determine the language
+function detectLanguage(message: string): string {
+  const trimmed = message.trim();
+  if (trimmed.length === 0) return 'English';
   
-  const prompt = userContext 
-    ? `${userContext}\n\nUser message: ${message}`
-    : message;
+  // Count characters by language
+  const koreanRegex = /[가-힣]/g;
+  const japaneseRegex = /[ひらがなカタカナ一-龯]/g;
+  const chineseRegex = /[一-龯]/g;
+  const frenchRegex = /[àâäéèêëïîôùûüÿç]/gi;
+  
+  const koreanMatches = (trimmed.match(koreanRegex) || []).length;
+  const japaneseMatches = (trimmed.match(japaneseRegex) || []).length;
+  const chineseMatches = (trimmed.match(chineseRegex) || []).length;
+  const frenchMatches = (trimmed.match(frenchRegex) || []).length;
+  
+  // Calculate percentages
+  const totalChars = trimmed.length;
+  const koreanPercent = koreanMatches / totalChars;
+  const japanesePercent = japaneseMatches / totalChars;
+  const chinesePercent = chineseMatches / totalChars;
+  const frenchPercent = frenchMatches / totalChars;
+  
+  // Determine language based on character presence (more accurate)
+  // If any Korean characters exist, it's Korean
+  if (koreanMatches > 0) return 'Korean';
+  // If any Japanese characters exist, it's Japanese
+  if (japaneseMatches > 0) return 'Japanese';
+  // If any Chinese characters exist, it's Chinese
+  if (chineseMatches > 0) return 'Chinese';
+  // If French-specific characters exist with significant presence, it's French
+  if (frenchMatches > 0 && frenchPercent > 0.1) return 'French';
+  
+  // Default to English for all other cases
+  return 'English';
+}
+
+async function callGoogleAI(message: string, userContext: string | undefined, accessToken: string) {
+  const detectedLang = detectLanguage(message);
+  
+  // Build the full prompt with explicit language matching instruction (simplified for speed)
+  const languageInstruction = `\n\nCRITICAL: Reply ONLY in ${detectedLang}. User wrote in ${detectedLang} - match it exactly. Ignore Korean in user profile.\n\n`;
+  
+  const fullPrompt = userContext 
+    ? `${STYLE_INSTRUCTION}${languageInstruction}${userContext}\n\nUser message (reply in ${detectedLang}): ${message}`
+    : `${STYLE_INSTRUCTION}${languageInstruction}User message (reply in ${detectedLang}): ${message}`;
 
   const res = await fetch(MODEL_URL, {
     method: 'POST',
@@ -65,8 +113,7 @@ async function callGoogleAI(message: string, userContext?: string) {
         {
           role: 'user',
           parts: [
-            { text: STYLE_INSTRUCTION },
-            { text: prompt },
+            { text: fullPrompt },
           ],
         },
       ],
@@ -85,7 +132,7 @@ async function callGoogleAI(message: string, userContext?: string) {
 }
 
 function buildUserContext(user: any): string {
-  const nickname = user.nickname || '회원님';
+  const nickname = user.nickname || 'User';
   const startWeight = user.start_weight;
   const currentWeight = user.current_weight;
   const targetWeight = user.target_weight;
@@ -104,15 +151,16 @@ function buildUserContext(user: any): string {
     ? (currentWeight - targetWeight).toFixed(1) 
     : null;
 
-  return `User profile:
+  // Use English for user context to avoid language bias
+  return `User profile (use this information but respond in the user's language):
 - Nickname: ${nickname}
 - Diet method: ${dietMethodName}
-- Start weight: ${startWeight}kg
-- Current weight: ${currentWeight}kg
-- Target weight: ${targetWeight}kg
-- Weight to lose: ${weightToLose}kg
+- Start weight: ${startWeight} kg
+- Current weight: ${currentWeight} kg
+- Target weight: ${targetWeight} kg
+- Weight to lose: ${weightToLose} kg
 - Days since starting: ${daysSinceStart} days
-- Daily calorie goal: ${dailyCalorieGoal}kcal`;
+- Daily calorie goal: ${dailyCalorieGoal} kcal`;
 }
 
 export async function OPTIONS() {
@@ -149,14 +197,22 @@ export async function POST(request: NextRequest) {
       chatHistoryLength: chatHistory?.length || 0
     });
 
-    const { data: user, error: userError } = await supabase
-      .from('haru_users')
-      .select(`
-        *,
-        dietMethod:haru_diet_methods(*)
-      `)
-      .eq('id', userId)
-      .single();
+    const startTime = Date.now();
+
+    // 사용자 정보 조회와 Access Token 획득을 병렬 처리
+    const [userResult, accessToken] = await Promise.all([
+      supabase
+        .from('haru_users')
+        .select(`
+          *,
+          dietMethod:haru_diet_methods(*)
+        `)
+        .eq('id', userId)
+        .single(),
+      getAccessToken().catch(() => null)
+    ]);
+
+    const { data: user, error: userError } = userResult;
 
     if (userError || !user) {
       console.error('사용자 조회 오류:', userError);
@@ -171,8 +227,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Failed to get access token' },
+        { 
+          status: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
     const userContext = buildUserContext(user);
-    const aiResponse = await callGoogleAI(message, userContext);
+    const aiResponse = await callGoogleAI(message, userContext, accessToken);
+    
+    const endTime = Date.now();
+    console.log(`⏱️ 총 응답 시간: ${endTime - startTime}ms`);
 
     console.log('✅ 상담 응답 생성 완료');
 
